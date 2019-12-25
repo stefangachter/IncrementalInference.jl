@@ -54,7 +54,7 @@ include("testBasicGraphs.jl")
     include("testlocalconstraintexamples.jl")
 end
 
-# include("priorusetest.jl")
+include("priorusetest.jl")
 
 include("testExplicitMultihypo.jl")
 
