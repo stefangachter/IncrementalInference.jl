@@ -434,11 +434,13 @@ export
   extractdistribution,
 
   # factor graph operating system utils (fgos)
-  convert2packedfunctionnode,
-  encodefg,
-  decodefg,
-  savejld,
-  loadjld,
+  saveTree,
+  loadTree,
+  # convert2packedfunctionnode,
+  # encodefg,
+  # decodefg,
+  # savejld,
+  # loadjld,
   landmarks,
   setCliqDrawColor,
 
@@ -548,6 +550,7 @@ include("Factors/Sphere1D.jl")
 include("AdditionalUtils.jl")
 include("SolverAPI.jl")
 
+include("CanonicalGraphExamples.jl")
 include("Deprecated.jl")
 
 exportimg(pl) = error("Please do `using Gadfly` before IncrementalInference is used to allow image export.")

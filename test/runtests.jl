@@ -23,6 +23,9 @@ include("testPartialFactors.jl")
 @testset "basic Bayes tree construction" begin
     include("testBayesTreeiSAM2Example.jl")
 end
+
+include("testTreeSaveLoad.jl")
+
 @testset "Ensure converter types can be run from extending namespaces..." begin
     include("saveconvertertypes.jl")
 end
@@ -40,8 +43,9 @@ end
 
 include("testBasicForwardConvolve.jl")
 
-
 include("testFactorMetadata.jl")
+
+include("testJunctionTreeConstruction.jl")
 
 include("testBasicCSM.jl")
 
