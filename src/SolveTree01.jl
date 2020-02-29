@@ -75,8 +75,7 @@ function packFromLocalPotentials!(dfg::AbstractDFG,
     fct = DFG.getFactor(dfg, idfct)
     data = getSolverData(fct)
     # skip partials here, will be caught in packFromLocalPartials!
-    if length( findall(getVariableOrder(fct) .== vsym) ) >= 1 && !data.fnc.partial
-    # if length( findall(data.fncargvID .== vsym) ) >= 1 && !data.fnc.partial
+    if length( findall(data.fncargvID .== vsym) ) >= 1 && !data.fnc.partial
       p, isinferdim = findRelatedFromPotential(dfg, fct, vsym, N, dbg )
       push!(dens, p)
       push!(wfac, fct.label)
@@ -101,7 +100,7 @@ function packFromLocalPartials!(fgl::G,
     !(exists(fgl, idfct)) && (@warn "$idfct not in clique $(cliq.index)" continue)
     vert = DFG.getFactor(fgl, idfct)
     data = getSolverData(vert)
-    if length( findall(getVariableOrder(vert) .== vsym) ) >= 1 && data.fnc.partial
+    if length( findall(data.fncargvID .== vsym) ) >= 1 && data.fnc.partial
       p, = findRelatedFromPotential(fgl, vert, vsym, N, dbg)
       pardims = data.fnc.usrfnc!.partial
       for dimnum in pardims
@@ -1020,7 +1019,7 @@ Notes
 Future
 - TODO: internal function chain is too long and needs to be refactored for maintainability.
 """
-function approxCliqMarginalUp!(fgl::AbstractDFG,
+function approxCliqMarginalUp!(fgl::G,
                                treel::AbstractBayesTree,
                                csym::Symbol,
                                onduplicate=true;
@@ -1029,7 +1028,7 @@ function approxCliqMarginalUp!(fgl::AbstractDFG,
                                iters::Int=3,
                                drawpdf::Bool=false,
                                multiproc::Bool=true,
-                               logger=ConsoleLogger()  )
+                               logger=ConsoleLogger()  ) where G <: AbstractDFG
   #
   fg_ = onduplicate ? deepcopy(fgl) : fgl
   # onduplicate
@@ -1110,28 +1109,72 @@ function approxCliqMarginalUp!(fgl::AbstractDFG,
   return urt
 end
 
+"""
+    $SIGNATURES
+
+Approximate Chapman-Kolmogorov transit integral and return separator marginals as messages to pass up the Bayes (Junction) tree, along with additional clique operation values for debugging.
+
+Notes
+=====
+- `onduplicate=true` by default internally uses deepcopy of factor graph and Bayes tree, and does **not** update the given objects.  Set false to update `fgl` and `treel` during compute.
+"""
+function doCliqInferenceUp!(fgl::FactorGraph,
+                            treel::AbstractBayesTree,
+                            csym::Symbol,
+                            onduplicate=true;
+                            N::Int=100,
+                            dbg::Bool=false,
+                            iters::Int=3,
+                            drawpdf::Bool=false,
+                            multiproc::Bool=true,
+                            logger=ConsoleLogger()   )
+  #
+  approxCliqMarginalUp!(fgl, treel, csym, onduplicate; N=N, dbg=dbg, iters=iters, drawpdf=drawpdf, multiproc=multiproc, logger=logger  )
+end
+
 # """
-#     $SIGNATURES
+#     $(TYPEDSIGNATURES)
 #
-# Approximate Chapman-Kolmogorov transit integral and return separator marginals as messages to pass up the Bayes (Junction) tree, along with additional clique operation values for debugging.
+# Perform Chapman-Kolmogorov transit integral procedure for a given clique, specifically for the upward direction.
 #
-# Notes
-# =====
-# - `onduplicate=true` by default internally uses deepcopy of factor graph and Bayes tree, and does **not** update the given objects.  Set false to update `fgl` and `treel` during compute.
+# Notes:
+# -----
+# * Assumes the same procedure has completed for the child cliques, since upward messages are required from them.
+# * Can adjust the number of `iters::Int=3` must be performed on the `itervars` of this clique.
 # """
 # function doCliqInferenceUp!(fgl::FactorGraph,
 #                             treel::AbstractBayesTree,
-#                             csym::Symbol,
-#                             onduplicate=true;
+#                             cliql::TreeClique;
 #                             N::Int=100,
 #                             dbg::Bool=false,
-#                             iters::Int=3,
-#                             drawpdf::Bool=false,
-#                             multiproc::Bool=true,
-#                             logger=ConsoleLogger()   )
+#                             iters::Int=3  )
 #   #
-#   approxCliqMarginalUp!(fgl, treel, csym, onduplicate; N=N, dbg=dbg, iters=iters, drawpdf=drawpdf, multiproc=multiproc, logger=logger  )
+#   # get children
+#   childr = childCliqs(treel, cliql)
+#
+#   # get upward messages from children
+#   upmsgs = NBPMessage[]
+#   for child in childr
+#     frsym = getSym(fgl, getFrontals(child)[1])
+#     ret = getUpMsgs(treel, frsym)
+#     @show typeof(ret)
+#     newmsg = NBPMessage()
+#     for (id, val) in ret
+#       newmsg[id] = convert(EasyMessage, val, manis)
+#     end
+#     push!(upmsgs, newmsg)
+#   end
+#
+#   ett = ExploreTreeType(fgl, treel, cliql, nothing, upmsgs)
+#
+#   urt = upGibbsCliqueDensity(ett, N, dbg, iters)
+#   return urt.keepupmsgs
 # end
+
+
+
+
+## NOTE REMOVED MANY RECURSIVE OR ITERATIVE STACK FUNCTIONS HERE
 
 
 
@@ -1181,7 +1224,7 @@ end
 
 Return `::Bool` on whether all variables in this `cliq` are marginalzed.
 """
-function isCliqMarginalizedFromVars(subfg::AbstractDFG, cliq::TreeClique)
+function isCliqMarginalizedFromVars(subfg::FactorGraph, cliq::TreeClique)
   for vert in getCliqVars(subfg, cliq)
     if !isMarginalized(vert)
       return false
@@ -1216,7 +1259,7 @@ Run through entire tree and set cliques as marginalized if all clique variables 
 Notes:
 - TODO can be made fully parallel, consider converting for use with `@threads` `for`.
 """
-function updateTreeCliquesAsMarginalizedFromVars!(fgl::AbstractDFG, tree::AbstractBayesTree)::Nothing
+function updateTreeCliquesAsMarginalizedFromVars!(fgl::FactorGraph, tree::AbstractBayesTree)::Nothing
   for (clid, cliq) in getCliques(tree)
     if isCliqMarginalizedFromVars(fgl, cliq)
       setCliqAsMarginalized!(cliq, true)

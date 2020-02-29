@@ -38,9 +38,6 @@ fg2 = deepcopy(fg)
 @test compareFactorGraphs(fg, fg)
 @test compareFactorGraphs(fg, fg2)
 
-# easier error messages
-getSolverParams(fg).multiproc = false
-
 tree, smt, hist = solveTree!(fg)
 
 x1a = getVariable(fg, :x0)
@@ -66,8 +63,7 @@ tree = wipeBuildNewTree!(fg2)
 
 @test !compareSimilarFactors(fg, fg2, skipsamples=true, skipcompute=false)
 
-@error "Suppressing one specific factor graph compare test post DFG v0.6.0 due to unknown (likely false) compare failure"
-# @test compareFactorGraphs(fg, fg2, skipsamples=true, skipcompute=true, skip=[:initialized;:inferdim;:ppeDict; :solvedCount; :fncargvID])
+@test compareFactorGraphs(fg, fg2, skipsamples=true, skipcompute=true, skip=[:initialized;:inferdim;:ppeDict; :solvedCount])
 
 end
 
