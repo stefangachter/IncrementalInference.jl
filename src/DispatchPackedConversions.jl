@@ -28,8 +28,8 @@ end
 
 function convert(::Type{PackedFunctionNodeData{P}}, d::FunctionNodeData{T}) where {P <: PackedInferenceType, T <: FactorOperationalMemory}
   # mhstr = packmultihypo(d.fnc)  # this is where certainhypo error occurs
-  return PackedFunctionNodeData(d.fncargvID, d.eliminated, d.potentialused, d.edgeIDs,
-          string(d.frommodule), convert(P, d.fnc.usrfnc!),
+  return PackedFunctionNodeData(d.eliminated, d.potentialused, d.edgeIDs,
+          convert(P, d.fnc.usrfnc!),
           d.multihypo, d.fnc.certainhypo )  # extract two values from ccw for storage -- ccw thrown away
 end
 
@@ -39,8 +39,8 @@ end
 
 
 function convert(
-            ::Type{IncrementalInference.GenericFunctionNodeData{IncrementalInference.CommonConvWrapper{F},Symbol}},
-            d::IncrementalInference.GenericFunctionNodeData{P,String} ) where {F <: FunctorInferenceType, P <: PackedInferenceType}
+            ::Type{IncrementalInference.GenericFunctionNodeData{IncrementalInference.CommonConvWrapper{F}}},
+            d::IncrementalInference.GenericFunctionNodeData{P} ) where {F <: FunctorInferenceType, P <: PackedInferenceType}
   #
   # TODO store threadmodel=MutliThreaded,SingleThreaded in persistence layer
   usrfnc = convert(F, d.fnc)
@@ -53,7 +53,7 @@ function convert(
   ccw = prepgenericconvolution(DFG.DFGVariable[], usrfnc, multihypo=mhcat, nullhypo=nh)
   ccw.certainhypo = d.certainhypo
 
-  ret = FunctionNodeData{CommonConvWrapper{typeof(usrfnc)}}(d.fncargvID, d.eliminated, d.potentialused, d.edgeIDs, Symbol(d.frommodule), ccw, d.multihypo, d.certainhypo)
+  ret = FunctionNodeData{CommonConvWrapper{typeof(usrfnc)}}( d.eliminated, d.potentialused, d.edgeIDs, ccw, d.multihypo, d.certainhypo, d.solveInProgress)
   # error("what what $(ret.fnc.certainhypo)")
   return ret
 end
@@ -64,6 +64,8 @@ end
 function convert(::Type{PT}, ::T) where {PT <: PackedInferenceType, T <:FunctorInferenceType}
   getfield(T.name.module, Symbol("Packed$(T.name.name)"))
 end
+#FIXME This does not fit in with the convert funtion's expected behaviour
+# it should rather be convert(::Type{T}, ::Type{PT}) or named something else
 function convert(::Type{T}, ::PT) where {T <: FunctorInferenceType, PT <: PackedInferenceType}
   getfield(PT.name.module, Symbol(string(PT.name.name)[7:end]))
 end
@@ -93,7 +95,7 @@ function decodePackedType(dfg::G, packeddata::PackedVariableNodeData) where G <:
   convert(IncrementalInference.VariableNodeData, packeddata)
 end
 # Factors
-function decodePackedType(dfg::G, packeddata::GenericFunctionNodeData{PT,<:AbstractString}) where {PT, G <: AbstractDFG}
+function decodePackedType(dfg::G, packeddata::GenericFunctionNodeData{PT}) where {PT, G <: AbstractDFG}
   usrtyp = convert(FunctorInferenceType, packeddata.fnc)
   fulltype = FunctionNodeData{CommonConvWrapper{usrtyp}}
   factor = convert(fulltype, packeddata)
