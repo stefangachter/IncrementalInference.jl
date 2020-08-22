@@ -277,7 +277,7 @@ Initialization downward message passing is different from regular inference sinc
 it is possible that none of the child cliq variables have been initialized.
 
 Notes
-- init upward msgs are individually stored in child cliques ().
+- init upward msgs are individually stored in child cliques (pull model good).
 - fresh product of overlapping beliefs are calculated on each function call.
 - Assumed that `prnt` of siblings
 
@@ -288,39 +288,19 @@ function prepCliqInitMsgsDown!(fgl::AbstractDFG,
                                tree::AbstractBayesTree,
                                prnt::TreeClique,
                                cliq::TreeClique;
-                               logger=ConsoleLogger(),
-                               dbgnew::Bool=true  )
+                               logger=ConsoleLogger() )
+                              #  ,dbgnew::Bool=true  )
   #
   tt = split(string(now()), 'T')[end]
   with_logger(logger) do
     @info "$(tt) prnt $(prnt.index), prepCliqInitMsgsDown! -- with cliq $(cliq.index)"
   end
-  # get the current messages ~~stored in~~ [going to] the parent
-  currmsgs = getMsgsUpInitChildren(tree, prnt, TreeBelief, [cliq.index;])     # FIXME, post #459 calls?
-  with_logger(logger) do
-    @info "prnt $(prnt.index), prepCliqInitMsgsDown! -- msg ids::Int=$(collect(keys(currmsgs)))"
-  end
 
+  
   # FIXME drop IntermediateMultiSiblingMessages and use only LikelihoodMessage
   # check if any msgs should be multiplied together for the same variable
   # msgspervar = LikelihoodMessage() # or maybe Dict{Int, LikelihoodMessage}()
-  msgspervar = IntermediateMultiSiblingMessages()
-
-  for (msgcliqid, msgs) in currmsgs
-    with_logger(logger) do
-      @info "prepCliqInitMsgsDown! -- msgcliqid=$msgcliqid, msgs.belief=$(collect(keys(msgs.belief)))"
-    end
-    for (msgsym, msg) in msgs.belief
-      if !haskey(msgspervar, msgsym)
-        # there will be an entire list...
-        msgspervar[msgsym] = IntermediateSiblingMessages()
-      end
-      with_logger(logger) do
-        @info "prepCliqInitMsgsDown! -- msgcliqid=$(msgcliqid), msgsym $(msgsym), inferdim=$(msg.inferdim)"
-      end
-      push!(msgspervar[msgsym], msg)
-    end
-  end
+  msgspervar = getMsgInitDwnParent(tree, cliq, logger=logger)
 
   with_logger(logger) do
     @info "cliq $(prnt.index), prepCliqInitMsgsDown! -- vars fw/ down msgs=$(collect(keys(msgspervar)))"
@@ -329,18 +309,12 @@ function prepCliqInitMsgsDown!(fgl::AbstractDFG,
   flush(logger.stream)
 
   # reference to default dict location
-  products = getMsgDwnThisInit(prnt)
+  #JT 459 products = getMsgDwnThisInit(prnt)
+  products = getfetchCliqueInitMsgDown(prnt.data, from=:getMsgDwnThisInit) |> deepcopy
 
   ## TODO use parent factors too
   # intersect with the asking clique's separator variables
-
-    # products only method
-    # @assert dbgnew "must use dbgnew=true for tree down init msg"
-    if dbgnew
-        condenseDownMsgsProductPrntFactors!(fgl, products, msgspervar, prnt, cliq, logger) # WIP -- not ready yet
-    else
-        condenseDownMsgsProductOnly!(fgl, products, msgspervar) # BASELINE deprecated
-    end
+  condenseDownMsgsProductPrntFactors!(fgl, products, msgspervar, prnt, cliq, logger)
 
   # remove msgs that have no data
   rmlist = Symbol[]
@@ -360,6 +334,11 @@ function prepCliqInitMsgsDown!(fgl::AbstractDFG,
   with_logger(logger) do
     @info "cliq $(prnt.index), prepCliqInitMsgsDown! -- product keys=$(collect(keys(products.belief)))"
   end
+
+  # now put the newly computed message in the appropriate container
+  # FIXME THIS IS A PUSH MODEL, see #674 -- make pull model
+  putCliqueInitMsgDown!(getCliqueData(prnt), products)
+
   return products
 end
 

@@ -74,13 +74,17 @@ const InstanceType{T} = Union{Type{<:T},T}
 # DFG SpecialDefinitions
 export AbstractDFG,
   InMemDFGType,
-  hasVariable,
   getSolverParams,
   LightDFG,
   getSolvedCount, isSolved, setSolvedCount!,
-  listSupersolves, listSolvekeys,
+  listSupersolves, listSolveKeys,
   deepcopySolvekeys!, deepcopySupersolve!,
-  diagm
+  diagm,
+  listDataEntries,
+  FolderStore,
+  addBlobStore!,
+  getData
+  # listDataBlobs  # ERROR: LightDFG{} doesn't override 'listDataBlobs'.
 
 # Inference types
 export FunctorInferenceType, PackedInferenceType
@@ -100,7 +104,6 @@ export *,
   # state machine methods
   StateMachine,
   exitStateMachine,
-  # getCliqSolveHistory,
   filterHistAllToArray,
   cliqHistFilterTransitions,
   printCliqSummary,
@@ -156,17 +159,16 @@ export *,
   # from DFG
   ls,
   lsf,
+  listVariables,
+  listFactors,
   exists,
   sortDFG,
   # getVariableIds,
   getVariableOrder,
   calcVariablePPE,
   getPPE,
-  # getPPEs,
+  getPPEDict,
   getVariablePPE,
-  # getVariablePPEs,
-  # sortVarNested,
-  # drawCopyFG,
   isVariable,
   isFactor,
   # from dfg
@@ -185,23 +187,16 @@ export *,
   getTimestamp,
 
   # using either dictionary or cloudgraphs
-  # VariableNodeData,
-  # PackedVariableNodeData,
   FactorMetadata,
-  # encodePackedType,
   FunctionNodeData,
   PackedFunctionNodeData, # moved to DFG
-  # encodePackedType,
-  # decodePackedType,
   normalfromstring,
   categoricalfromstring,
   extractdistribution,
 
-  # FactorGraph,
   SolverParams,
   getSolvable,
   setSolvable!,
-  # addNode!,
   addVariable!,
   deleteVariable!,
   addFactor!,
@@ -229,7 +224,6 @@ export *,
   getVariableDim,
   getVariableInferredDim,
   getVariableInferredDimFraction,
-  # getVariablePotentialDims,
   getVariableSolvableDim,
   getFactorSolvableDim,
   getFactorInferFraction,
@@ -239,7 +233,6 @@ export *,
   getCliqueData,
   setCliqueData!,
   getManifolds,
-  # getVarNode,
   getVal,
   getBW,
   setVal!,
@@ -252,16 +245,12 @@ export *,
 
   # state machine functions
   finishCliqSolveCheck_StateMachine,
-  # doCliqInferAttempt_StateMachine,
   determineCliqNeedDownMsg_StateMachine,
-  # blockUntilChildrenStatus_StateMachine,
   blockUntilSiblingsStatus_StateMachine,
   doesCliqNeeddownmsg_StateMachine,
   slowCliqIfChildrenNotUpsolved_StateMachine,
-  # whileCliqNotSolved_StateMachine,
   buildCliqSubgraph_StateMachine,
   isCliqUpSolved_StateMachine,
-  # determineAllChildrenNeedDownMsg_StateMachine,
   testCliqCanRecycled_StateMachine,
   buildCliqSubgraphForDown_StateMachine,
 
@@ -271,7 +260,6 @@ export *,
   isTreeSolved,
   isUpInferenceComplete,
   isCliqInitialized,
-  # isCliqReadyInferenceUp,
   isCliqUpSolved,
   areCliqVariablesAllInitialized,
   areCliqChildrenNeedDownMsg,
@@ -282,20 +270,15 @@ export *,
   cycleInitByVarOrder!,
   prepCliqInitMsgsUp,
   prepCliqInitMsgsDown!,
-  # updateFullVert!,
   getOutNeighbors,
   BayesTree,
   TreeBelief,
-  # NBPMessage,
   LikelihoodMessage,
   FullExploreTreeType,
   ExploreTreeType,
-  # FactorGraph,
   initfg,
   buildSubgraph,
-  # copyGraph,
   buildCliqSubgraph!,
-  # subgraphShortestPath,
   transferUpdateSubGraph!,
   transferUpdateSubGraph!,
   getEliminationOrder,
@@ -311,7 +294,6 @@ export *,
   getCliqDepth,
   getTreeAllFrontalSyms,
   getTreeCliqUpMsgsAll,
-  # isReadyCliqInferenceUp,
   childCliqs,
   getChildren,
   parentCliq,
@@ -319,7 +301,6 @@ export *,
   getCliqSiblings,
   getNumCliqs,
   getBelief, getKDE,
-  # initializeNode!,
   CliqStateMachineContainer,
   solveTree!,
   solveGraph!,
@@ -327,7 +308,6 @@ export *,
   fifoFreeze!,
 
   # temp const types TODO
-  # TempBeliefMsg,
   TempUpMsgPlotting,
 
   #functors need
@@ -336,7 +316,6 @@ export *,
   freshSamples,
 
   #Visualization
-  # writeGraphPdf, # deprecated
   drawGraph,
   drawGraphCliq,
   drawCliqSubgraphUpMocking,
@@ -345,7 +324,6 @@ export *,
   # printgraphmax,
 
   # Bayes (Junction) Tree
-  # evalPotential,
   evalFactor2,
   approxConv,
   approxConvBinary,
@@ -375,25 +353,11 @@ export *,
   # new wrapper (experimental)
   CommonConvWrapper,
 
-  # solve inference
-  # inferOverTree!,
-  # inferOverTreeR!,
-  # inferOverTreeIterative!,
-
-  #development interface
-  # getTreeCliqSolveOrderUp,
-  # getCliqOrderUpSolve,
   getCliqVarInitOrderUp,
   getCliqInitVarOrderDown,
-  # getCliqueStatusUp,
   blockCliqUntilChildrenHaveUpStatus,
   blockCliqSiblingsParentNeedDown,
   getCliqNumAssocFactorsPerVar,
-  # upMsgPassingRecursive,
-  # downMsgPassingRecursive,
-
-  # upMsgPassingIterative!,
-  # downMsgPassingIterative!,
 
   # introduced for approximate convolution operations
   setThreadModel!,
@@ -404,12 +368,9 @@ export *,
   findRelatedFromPotential,
   shuffleXAltD!,
   numericRoot,
-  # numericRootGenericRandomized,
-  # numericRootGenericRandomizedFnc,
   numericRootGenericRandomizedFnc!,
 
   # user functions
-  # proposalbeliefs,
   predictbelief,
   getCliqMat,
   getCliqAssocMat,
@@ -419,7 +380,6 @@ export *,
   getCliqSeparatorVarIds,
   getCliqAllVarIds,
   getCliqVarIdsAll,
-  # getCliqVars,
   getCliqAllVarSyms,
   getCliqVarIdsPriors,
   getCliqVarSingletons,
@@ -448,9 +408,6 @@ export *,
   rebuildFactorMetadata!,
 
   getCliqVarSolveOrderUp,
-
-  # getSym,
-  # doCliqInferenceUp!,
   getFactorsAmongVariablesOnly,
   setfreeze!,
 
@@ -471,22 +428,12 @@ export *,
   reshapeVec2Mat,
   accumulateFactorChain,
 
-
   # For 1D example,
   # TODO rename to L2 distance
   Ranged,
   PackedRanged
 
-  # development
-  # dev exports
-# TODO deprecate
-  # addGraphsVert!,
-  # makeAddEdge!
 
-
-
-
-# TODO should be deprecated
 const NothingUnion{T} = Union{Nothing, T}
 
 # regular
@@ -516,6 +463,7 @@ include("SubGraphFunctions.jl")
 include("JunctionTree.jl")
 include("TreeMessageAccessors.jl")
 include("TreeMessageUtils.jl")
+include("TreeMsgDwnConsolidation.jl")
 include("TreeBasedInitialization.jl")
 
 # solving graphs
@@ -554,55 +502,7 @@ exportimg(pl) = error("Please do `using Gadfly` before IncrementalInference is u
 function __init__()
     @require InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240" include("RequireInteractiveUtils.jl")
 
-    @require Gadfly="c91e804a-d5a3-530f-b6f0-dfbca275c004" begin
-      @info "Defining spyCliqMat(..) for visualizing association matrix of a clique in the Bayes (Junction) tree"
-
-      exportimg(pl) = Gadfly.PNG(pl)
-
-      export spyCliqMat
-
-      """
-          $SIGNATURES
-
-      Draw the clique association matrix, with keyword arguments for more or less console print outs.
-
-      Notes
-      * Columns are variables, rows are factors.
-      * Drawn from up message passing perspective.
-      * Blue color implies no factor association.
-      * Frontal, separator, and upmessages are all drawn at different intensity of red.
-      * Downward messages not shown, as they would just be singletons of the full separator set.
-      """
-      function spyCliqMat(cliq::TreeClique; showmsg=true, suppressprint::Bool=false)
-        mat = deepcopy(getCliqMat(cliq, showmsg=showmsg))
-        # TODO -- add improved visualization here, iter vs skip
-        mat = map(Float64, mat)*2.0.-1.0
-        numlcl = size(getCliqAssocMat(cliq),1)
-        mat[(numlcl+1):end,:] *= 0.9
-        mat[(numlcl+1):end,:] .-= 0.1
-        numfrtl1 = floor(Int,length(getCliqueData(cliq).frontalIDs) + 1)
-        mat[:,numfrtl1:end] *= 0.9
-        mat[:,numfrtl1:end] .-= 0.1
-        if !suppressprint
-          @show getCliqueData(cliq).itervarIDs
-          @show getCliqueData(cliq).directvarIDs
-          @show getCliqueData(cliq).msgskipIDs
-          @show getCliqueData(cliq).directFrtlMsgIDs
-          @show getCliqueData(cliq).directPriorMsgIDs
-        end
-        if size(mat,1) == 1
-          mat = [mat; -ones(size(mat,2))']
-        end
-        sp = Gadfly.spy(mat)
-        push!(sp.guides, Gadfly.Guide.title("$(getLabel(cliq)) || $(getCliqueData(cliq).frontalIDs) :$(getCliqueData(cliq).separatorIDs)"))
-        push!(sp.guides, Gadfly.Guide.xlabel("fmcmcs $(getCliqueData(cliq).itervarIDs)"))
-        push!(sp.guides, Gadfly.Guide.ylabel("lcl=$(numlcl) || msg=$(size(getCliqMsgMat(cliq),1))" ))
-        return sp
-      end
-      function spyCliqMat(bt::AbstractBayesTree, lbl::Symbol; showmsg=true, suppressprint::Bool=false)
-        spyCliqMat(getClique(bt,lbl), showmsg=showmsg, suppressprint=suppressprint)
-      end
-    end
+    @require Gadfly="c91e804a-d5a3-530f-b6f0-dfbca275c004" include("EmbeddedPlottingUtils.jl")
 end
 
 # Old code that might be used again
